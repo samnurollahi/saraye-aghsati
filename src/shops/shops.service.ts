@@ -1,8 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'node:crypto';
 import * as QRCode from 'qrcode';
-import { Repository } from 'typeorm';
+import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { CreateShopDto } from './dto/create-shop.dto';
 import { ShopPaginationDto } from './dto/shop-pagination.dto';
 import {
@@ -11,12 +15,17 @@ import {
 } from './dto/shop-response.dto';
 import { UpdateShopDto } from './dto/update-shop.dto';
 import { Shop } from './entities/shop.entity';
+import { ShopAccount } from './entities/shop-account.entity';
+import { normalizeIranianPhone } from './phone-normalizer';
 
 @Injectable()
 export class ShopsService {
   constructor(
+    private readonly dataSource: DataSource,
     @InjectRepository(Shop)
     private readonly shopsRepository: Repository<Shop>,
+    @InjectRepository(ShopAccount)
+    private readonly accountsRepository: Repository<ShopAccount>,
   ) {}
 
   async create(dto: CreateShopDto): Promise<ShopResponseDto> {
@@ -48,6 +57,27 @@ export class ShopsService {
   async update(id: string, dto: UpdateShopDto): Promise<ShopResponseDto> {
     const shop = await this.findById(id);
     Object.assign(shop, dto);
+    if (dto.phone) {
+      const account = await this.accountsRepository.findOneBy({ shopId: id });
+      if (account) {
+        try {
+          const updated = await this.dataSource.transaction(async (manager) => {
+            await manager.getRepository(ShopAccount).update(account.id, {
+              loginPhone: normalizeIranianPhone(dto.phone!),
+            });
+            return manager.getRepository(Shop).save(shop);
+          });
+          return this.toShopResponse(updated);
+        } catch (error) {
+          if (isUniqueViolation(error)) {
+            throw new ConflictException(
+              'شماره تماس فروشگاه قبلاً برای فروشگاه دیگری ثبت شده است.',
+            );
+          }
+          throw error;
+        }
+      }
+    }
     return this.toShopResponse(await this.shopsRepository.save(shop));
   }
 
@@ -113,4 +143,12 @@ export class ShopsService {
       updatedAt: shop.updatedAt,
     };
   }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    error instanceof QueryFailedError &&
+    (error as QueryFailedError & { driverError?: { code?: string } })
+      .driverError?.code === '23505'
+  );
 }

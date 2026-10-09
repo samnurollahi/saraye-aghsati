@@ -1,6 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import QRCode from 'qrcode';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { CreateShopDto } from './dto/create-shop.dto';
 import { ShopPaginationDto } from './dto/shop-pagination.dto';
 import { UpdateShopDto } from './dto/update-shop.dto';
@@ -26,6 +26,7 @@ const shopRecord = (overrides: Partial<Shop> = {}): Shop => ({
 describe('ShopsService', () => {
   let service: ShopsService;
   let repository: Record<string, jest.Mock>;
+  let accountRepository: Record<string, jest.Mock>;
 
   beforeEach(() => {
     repository = {
@@ -36,7 +37,14 @@ describe('ShopsService', () => {
       findOneBy: jest.fn(async () => shopRecord()),
       softRemove: jest.fn(async () => undefined),
     };
-    service = new ShopsService(repository as unknown as Repository<Shop>);
+    accountRepository = { findOneBy: jest.fn(async () => null) };
+    service = new ShopsService(
+      { transaction: jest.fn() } as unknown as DataSource,
+      repository as unknown as Repository<Shop>,
+      accountRepository as unknown as Repository<
+        import('./entities/shop-account.entity').ShopAccount
+      >,
+    );
   });
 
   it('generates distinct secure tokens on shop creation without returning them', async () => {

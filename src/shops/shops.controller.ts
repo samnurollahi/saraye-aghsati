@@ -15,6 +15,7 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -38,12 +39,17 @@ import {
   ShopResponseDto,
 } from './dto/shop-response.dto';
 import { UpdateShopDto } from './dto/update-shop.dto';
+import { ShopSetupTokenResponseDto } from './dto/shop-auth-response.dto';
+import { ShopAuthService } from './shop-auth.service';
 import { ShopsService } from './shops.service';
 
 @ApiTags('Shops')
 @Controller()
 export class ShopsController {
-  constructor(private readonly shopsService: ShopsService) {}
+  constructor(
+    private readonly shopsService: ShopsService,
+    private readonly shopAuthService: ShopAuthService,
+  ) {}
 
   @Post('admin/shops')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -57,6 +63,34 @@ export class ShopsController {
   @ApiForbiddenResponse({ description: 'دسترسی فقط برای مدیر سیستم مجاز است.' })
   create(@Body() dto: CreateShopDto): Promise<ShopResponseDto> {
     return this.shopsService.create(dto);
+  }
+
+  @Post('admin/shops/:id/credentials/setup-token')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'صدور توکن یک‌بارمصرف تنظیم رمز اولیه برای فروشگاه',
+  })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiCreatedResponse({ type: ShopSetupTokenResponseDto })
+  @ApiBadRequestResponse({ description: 'شناسه فروشگاه معتبر نیست.' })
+  @ApiConflictResponse({
+    description: 'فروشگاه غیرفعال، دارای رمز، یا دارای شماره ورود تکراری است.',
+  })
+  @ApiUnauthorizedResponse({ description: 'احراز هویت الزامی است.' })
+  @ApiForbiddenResponse({ description: 'فقط مدیر سیستم مجاز است.' })
+  provisionCredentials(
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        exceptionFactory: () =>
+          new BadRequestException('شناسه فروشگاه معتبر نیست.'),
+      }),
+    )
+    id: string,
+  ): Promise<ShopSetupTokenResponseDto> {
+    return this.shopAuthService.provisionCredentials(id);
   }
 
   @Get('admin/shops')

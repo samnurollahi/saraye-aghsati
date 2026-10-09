@@ -12,6 +12,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '../users/user-role.enum';
 import { ShopsController } from './shops.controller';
+import { ShopAuthService } from './shop-auth.service';
 import { ShopsService } from './shops.service';
 
 const shopId = '6b2d98f2-82e8-4ac5-8f32-646888a4f3bb';
@@ -49,6 +50,13 @@ describe('ShopsController', () => {
       description: shopResponse.description,
     }),
   };
+  const shopAuthService = {
+    provisionCredentials: jest.fn().mockResolvedValue({
+      setupToken: 'temporary-setup-token',
+      loginIdentifier: '09120000000',
+      expiresAt: '2026-10-08T12:30:00.000Z',
+    }),
+  };
 
   beforeEach(async () => {
     const jwtService = {
@@ -67,6 +75,13 @@ describe('ShopsController', () => {
             tokenUse: 'access',
           });
         }
+        if (token === 'shop-token') {
+          return Promise.resolve({
+            sub: shopId,
+            principalType: 'shop',
+            tokenUse: 'access',
+          });
+        }
         throw new Error('Invalid token');
       }),
     };
@@ -76,6 +91,7 @@ describe('ShopsController', () => {
         JwtAuthGuard,
         RolesGuard,
         { provide: ShopsService, useValue: shopsService },
+        { provide: ShopAuthService, useValue: shopAuthService },
         { provide: JwtService, useValue: jwtService },
         {
           provide: ConfigService,
@@ -129,7 +145,28 @@ describe('ShopsController', () => {
       .set('Authorization', 'Bearer user-token')
       .send(validCreateBody)
       .expect(403);
+    await request(app.getHttpServer())
+      .post('/admin/shops')
+      .set('Authorization', 'Bearer shop-token')
+      .send(validCreateBody)
+      .expect(401);
     expect(shopsService.create).not.toHaveBeenCalled();
+  });
+
+  it('allows only an admin to provision a setup token', async () => {
+    await request(app.getHttpServer())
+      .post(`/admin/shops/${shopId}/credentials/setup-token`)
+      .set('Authorization', 'Bearer user-token')
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`/admin/shops/${shopId}/credentials/setup-token`)
+      .set('Authorization', 'Bearer admin-token')
+      .expect(201)
+      .then(({ body }) => {
+        const response = body as { setupToken: string };
+        expect(response.setupToken).toBe('temporary-setup-token');
+      });
+    expect(shopAuthService.provisionCredentials).toHaveBeenCalledWith(shopId);
   });
 
   it('allows an admin to create a shop', async () => {
