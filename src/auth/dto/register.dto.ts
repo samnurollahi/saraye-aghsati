@@ -19,7 +19,6 @@ export class RegisterDto {
 
   @ApiProperty({ example: '0067995942', minLength: 10, maxLength: 10 })
   @IsString({ message: 'کد ملی باید متن باشد.' })
-  @IsIranianNationalCode({ message: 'کد ملی معتبر نیست.' })
   nationalCode!: string;
 
   @ApiProperty({ example: '09123456789', minLength: 11, maxLength: 11 })
