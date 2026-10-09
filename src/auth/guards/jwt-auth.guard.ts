@@ -33,11 +33,17 @@ export class JwtAuthGuard implements CanActivate {
       if (
         payload.tokenUse !== 'access' ||
         typeof payload.sub !== 'string' ||
+        payload.principalType === 'shop' ||
+        !payload.role ||
         !Object.values(UserRole).includes(payload.role)
       ) {
         throw new Error('Invalid access token payload');
       }
-      request.user = { userId: payload.sub, role: payload.role };
+      request.user = {
+        principalType: 'user',
+        userId: payload.sub,
+        role: payload.role,
+      };
       return true;
     } catch {
       throw new UnauthorizedException('توکن دسترسی معتبر نیست.');

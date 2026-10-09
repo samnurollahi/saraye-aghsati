@@ -3,10 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcryptjs';
-import { createHash, timingSafeEqual } from 'crypto';
 import { QueryFailedError } from 'typeorm';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -15,14 +12,14 @@ import { UserResponseDto } from '../users/dto/user-response.dto';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/user-role.enum';
 import { UsersService } from '../users/users.service';
+import { AuthTokenService } from './auth-token.service';
 import { JwtPayload } from './auth.types';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
+    private readonly authTokenService: AuthTokenService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -78,9 +75,7 @@ export class AuthService {
   async refresh(refreshToken: string): Promise<AuthResponseDto> {
     let payload: JwtPayload;
     try {
-      payload = await this.jwtService.verifyAsync<JwtPayload>(refreshToken, {
-        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-      });
+      payload = await this.authTokenService.verifyRefreshToken(refreshToken);
     } catch {
       throw new UnauthorizedException('رفرش توکن معتبر نیست.');
     }
@@ -88,6 +83,8 @@ export class AuthService {
     if (
       payload.tokenUse !== 'refresh' ||
       typeof payload.sub !== 'string' ||
+      payload.principalType === 'shop' ||
+      !payload.role ||
       !Object.values(UserRole).includes(payload.role)
     ) {
       throw new UnauthorizedException('رفرش توکن معتبر نیست.');
@@ -100,8 +97,10 @@ export class AuthService {
       throw new UnauthorizedException('رفرش توکن معتبر نیست.');
     }
 
-    const currentHash = this.hashToken(refreshToken);
-    if (!this.safeHashEquals(currentHash, user.refreshTokenHash)) {
+    const currentHash = this.authTokenService.hashToken(refreshToken);
+    if (
+      !this.authTokenService.safeHashEquals(currentHash, user.refreshTokenHash)
+    ) {
       throw new UnauthorizedException('رفرش توکن معتبر نیست.');
     }
 
@@ -109,7 +108,7 @@ export class AuthService {
     const rotated = await this.usersService.rotateRefreshTokenHash(
       user.id,
       currentHash,
-      this.hashToken(tokens.refreshToken),
+      this.authTokenService.hashToken(tokens.refreshToken),
     );
     if (!rotated) {
       throw new UnauthorizedException('رفرش توکن قبلاً استفاده شده است.');
@@ -130,44 +129,17 @@ export class AuthService {
     const tokens = await this.createTokens(user);
     await this.usersService.updateRefreshTokenHash(
       user.id,
-      this.hashToken(tokens.refreshToken),
+      this.authTokenService.hashToken(tokens.refreshToken),
     );
     return { ...tokens, user: this.toUserResponse(user) };
   }
 
-  private createTokens(
-    user: User,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
-    const basePayload = { sub: user.id, role: user.role };
-    return Promise.all([
-      this.jwtService.signAsync(
-        { ...basePayload, tokenUse: 'access' },
-        {
-          secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
-          expiresIn: '15m',
-        },
-      ),
-      this.jwtService.signAsync(
-        { ...basePayload, tokenUse: 'refresh' },
-        {
-          secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-          expiresIn: '7d',
-        },
-      ),
-    ]).then(([accessToken, refreshToken]) => ({ accessToken, refreshToken }));
-  }
-
-  private hashToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
-  }
-
-  private safeHashEquals(left: string, right: string): boolean {
-    const leftBuffer = Buffer.from(left);
-    const rightBuffer = Buffer.from(right);
-    return (
-      leftBuffer.length === rightBuffer.length &&
-      timingSafeEqual(leftBuffer, rightBuffer)
-    );
+  private createTokens(user: User) {
+    return this.authTokenService.createTokens({
+      sub: user.id,
+      role: user.role,
+      principalType: 'user',
+    });
   }
 
   private toUserResponse(user: User): UserResponseDto {

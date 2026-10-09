@@ -1,20 +1,16 @@
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import { hash } from 'bcryptjs';
 import { createHash } from 'crypto';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/user-role.enum';
 import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
+import { AuthTokenService } from './auth-token.service';
 
 describe('AuthService', () => {
   let service: AuthService;
   let usersService: jest.Mocked<UsersService>;
-  let jwtService: jest.Mocked<JwtService>;
-  const configService = {
-    getOrThrow: jest.fn((key: string) => `${key}-test-secret`),
-  } as unknown as ConfigService;
+  let authTokenService: jest.Mocked<AuthTokenService>;
 
   const createUser = (overrides: Partial<User> = {}): User => ({
     id: 'user-id',
@@ -42,13 +38,20 @@ describe('AuthService', () => {
       updateRefreshTokenHash: jest.fn(),
       rotateRefreshTokenHash: jest.fn(),
     } as unknown as jest.Mocked<UsersService>;
-    jwtService = {
-      signAsync: jest.fn((payload: { tokenUse: string }) =>
-        Promise.resolve(`${payload.tokenUse}-token`),
+    authTokenService = {
+      createTokens: jest.fn(() =>
+        Promise.resolve({
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+        }),
       ),
-      verifyAsync: jest.fn(),
-    } as unknown as jest.Mocked<JwtService>;
-    service = new AuthService(usersService, jwtService, configService);
+      verifyRefreshToken: jest.fn(),
+      hashToken: jest.fn((token: string) =>
+        createHash('sha256').update(token).digest('hex'),
+      ),
+      safeHashEquals: jest.fn((left: string, right: string) => left === right),
+    } as unknown as jest.Mocked<AuthTokenService>;
+    service = new AuthService(usersService, authTokenService);
   });
 
   it('registers as user, hashes the password, and returns tokens without sensitive fields', async () => {
@@ -123,15 +126,14 @@ describe('AuthService', () => {
   });
 
   it('rotates a valid refresh token and rejects concurrent reuse', async () => {
-    const currentTokenHash = createHash('sha256')
-      .update('refresh-token')
-      .digest('hex');
+    const currentTokenHash = authTokenService.hashToken('refresh-token');
     usersService.findByIdWithRefreshTokenHash.mockResolvedValue(
       createUser({ refreshTokenHash: currentTokenHash }),
     );
-    jwtService.verifyAsync.mockResolvedValue({
+    authTokenService.verifyRefreshToken.mockResolvedValue({
       sub: 'user-id',
       role: UserRole.USER,
+      principalType: 'user',
       tokenUse: 'refresh',
     });
     usersService.rotateRefreshTokenHash.mockResolvedValue(true);
