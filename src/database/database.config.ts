@@ -11,6 +11,8 @@ import { Transaction } from '../transactions/entities/transaction.entity';
 import { CreateTransactions1791705600000 } from './migrations/1791705600000-CreateTransactions';
 import { Notification } from '../notifications/entities/notification.entity';
 import { CreateNotifications1791792000000 } from './migrations/1791792000000-CreateNotifications';
+import { ShopAccount } from '../shops/entities/shop-account.entity';
+import { CreateShopAccounts1791878400000 } from './migrations/1791878400000-CreateShopAccounts';
 import { config } from 'dotenv';
 
 config();
@@ -31,6 +33,7 @@ export function buildDatabaseOptions(
       Loan,
       Installment,
       Shop,
+      ShopAccount,
       Transaction,
       Notification,
     ],
@@ -40,6 +43,7 @@ export function buildDatabaseOptions(
       CreateShops1791619200000,
       CreateTransactions1791705600000,
       CreateNotifications1791792000000,
+      CreateShopAccounts1791878400000,
     ],
     synchronize: false,
     migrationsRun: false,

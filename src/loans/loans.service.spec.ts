@@ -4,6 +4,7 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/user-role.enum';
 import { ApproveLoanRequestDto } from './dto/approve-loan-request.dto';
+import { AdminInstallmentFilterDto } from './dto/admin-installment-filter.dto';
 import { CreateLoanRequestDto } from './dto/create-loan-request.dto';
 import { Installment } from './entities/installment.entity';
 import { Loan } from './entities/loan.entity';
@@ -315,7 +316,9 @@ describe('LoansService', () => {
     };
     installmentRepository.createQueryBuilder.mockReturnValue(queryBuilder);
 
-    const result = await service.getAdminInstallments({});
+    const result = await service.getAdminInstallments(
+      new AdminInstallmentFilterDto(),
+    );
 
     expect(result.items[0]).toMatchObject({
       id: 'installment-id',

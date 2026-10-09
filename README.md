@@ -52,6 +52,12 @@ Swagger UI is available at `/docs`. Authentication endpoints are:
 - `POST /auth/refresh`: `refreshToken`.
 - `GET /auth/me`: requires `Authorization: Bearer <accessToken>`.
 
+Shop accounts are provisioned separately by an admin and use a one-time setup
+token before the shop can set its own password. The shop login, profile,
+dashboard, refresh, and transaction-history contract is documented in
+[`docs/shop-authentication.md`](docs/shop-authentication.md). Applying the new
+shop-account migration does not assign credentials to existing shops.
+
 ## Compile and run the project
 
 ```bash

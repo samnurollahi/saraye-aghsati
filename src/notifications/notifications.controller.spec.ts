@@ -104,7 +104,7 @@ describe('NotificationsController', () => {
       .expect(200);
 
     expect(notificationsService.list).toHaveBeenCalledWith(
-      { userId: 'user-id', role: UserRole.USER },
+      { principalType: 'user', userId: 'user-id', role: UserRole.USER },
       { page: 3, limit: 4 },
     );
   });
@@ -118,7 +118,7 @@ describe('NotificationsController', () => {
 
     expect(notificationsService.markAsRead).toHaveBeenCalledWith(
       notificationId,
-      { userId: 'user-id', role: UserRole.USER },
+      { principalType: 'user', userId: 'user-id', role: UserRole.USER },
     );
 
     notificationsService.markAsRead.mockRejectedValueOnce(

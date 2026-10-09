@@ -115,7 +115,7 @@ describe('LoansController', () => {
       .send({ requestedAmount: 100, purpose: 'خرید کالا' })
       .expect(201);
     expect(loansService.createRequest).toHaveBeenCalledWith(
-      { userId: 'user-id', role: UserRole.USER },
+      { principalType: 'user', userId: 'user-id', role: UserRole.USER },
       { requestedAmount: 100, purpose: 'خرید کالا' },
     );
 
@@ -190,6 +190,7 @@ describe('LoansController', () => {
       .set('Authorization', 'Bearer user-token')
       .expect(200);
     expect(loansService.getMyRequests).toHaveBeenCalledWith({
+      principalType: 'user',
       userId: 'user-id',
       role: UserRole.USER,
     });
@@ -199,6 +200,7 @@ describe('LoansController', () => {
       .set('Authorization', 'Bearer user-token')
       .expect(200);
     expect(loansService.getMyLoans).toHaveBeenCalledWith({
+      principalType: 'user',
       userId: 'user-id',
       role: UserRole.USER,
     });
@@ -209,7 +211,7 @@ describe('LoansController', () => {
       .expect(200);
     expect(loansService.getMyInstallments).toHaveBeenCalledWith(
       '6b2d98f2-82e8-4ac5-8f32-646888a4f3bb',
-      { userId: 'user-id', role: UserRole.USER },
+      { principalType: 'user', userId: 'user-id', role: UserRole.USER },
     );
   });
 
@@ -276,7 +278,7 @@ describe('LoansController', () => {
       .expect(200);
     expect(loansService.approveRequest).toHaveBeenCalledWith(
       '6b2d98f2-82e8-4ac5-8f32-646888a4f3bb',
-      { userId: 'admin-id', role: UserRole.ADMIN },
+      { principalType: 'user', userId: 'admin-id', role: UserRole.ADMIN },
       {
         principalAmount: 100,
         interestRate: 10,
@@ -329,7 +331,7 @@ describe('LoansController', () => {
       .expect(200);
     expect(loansService.confirmInstallmentPayment).toHaveBeenCalledWith(
       installmentId,
-      { userId: 'admin-id', role: UserRole.ADMIN },
+      { principalType: 'user', userId: 'admin-id', role: UserRole.ADMIN },
       { paidAt: '2026-10-08T12:30:00.000Z' },
     );
   });

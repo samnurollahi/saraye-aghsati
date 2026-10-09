@@ -51,6 +51,13 @@ describe('TransactionsController', () => {
             tokenUse: 'access',
           });
         }
+        if (token === 'shop-token') {
+          return Promise.resolve({
+            sub: 'shop-a',
+            principalType: 'shop',
+            tokenUse: 'access',
+          });
+        }
         throw new Error('Invalid token');
       }),
     };
@@ -107,6 +114,10 @@ describe('TransactionsController', () => {
       .set('Authorization', 'Bearer admin-token')
       .send({ shopId: 'shop-id', amount: 100 })
       .expect(403);
+    await request(app.getHttpServer())
+      .get('/transactions/me')
+      .set('Authorization', 'Bearer shop-token')
+      .expect(401);
   });
 
   it('rejects userId and loanId from the request body', async () => {
