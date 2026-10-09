@@ -31,6 +31,27 @@
 $ npm install
 ```
 
+## Auth and database setup
+
+The API uses PostgreSQL. Set `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, and
+`PGDATABASE` before starting the application. Apply the initial schema with
+`npm run db:migrate`, then load the repeatable demo data with `npm run db:seed`.
+Schema synchronization is disabled. The seed creates an admin, a sample user,
+a shop, and a sample loan with installments, transaction, and notification.
+Both demo accounts use the password `Password123!`; the admin login is
+`admin@example.com` and the user login is `user@example.com`.
+
+Set two independent, high-entropy secrets before using authentication:
+`JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`. Access tokens expire after 15
+minutes; refresh tokens expire after 7 days and are rotated on every refresh.
+
+Swagger UI is available at `/docs`. Authentication endpoints are:
+
+- `POST /auth/register`: `fullName`, `nationalCode`, `phone`, `password`, and optional `email`.
+- `POST /auth/login`: `identifier` (phone or national code) and `password`.
+- `POST /auth/refresh`: `refreshToken`.
+- `GET /auth/me`: requires `Authorization: Bearer <accessToken>`.
+
 ## Compile and run the project
 
 ```bash
